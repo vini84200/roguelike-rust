@@ -108,6 +108,7 @@ impl Rect {
 #[derive(Clone, Copy, Debug)]
 struct Tile {
     blocked: bool,
+    explored: bool,
     block_sight: bool,
 }
 
@@ -115,14 +116,16 @@ impl Tile {
     pub fn empty() -> Self {
         Tile {
             blocked: false,
-            block_sight: false
+            block_sight: false,
+            explored: false,
         }
     }
 
     pub fn wall() -> Self {
         Tile {
             blocked: true,
-            block_sight: true
+            block_sight: true,
+            explored: false,
         }
     }
 }
@@ -240,7 +243,7 @@ fn main() {
 
     let mut objects = [player, npc];
 
-    let game = Game {
+    let mut game = Game {
         map: make_map(&mut objects[0]),
     };
 
@@ -259,7 +262,7 @@ fn main() {
 
     while !tcod.root.window_closed() {
         let fov_recompute = previous_player_position != (objects[0].x, objects[0].y);
-        render_all(&mut tcod, &game, &objects, fov_recompute);
+        render_all(&mut tcod, &mut game, &objects, fov_recompute);
 
         tcod.root.flush();
         let player = &mut objects[0];
@@ -271,14 +274,13 @@ fn main() {
     }
 }
 
-fn render_all(mut tcod: &mut Tcod,game: &Game, objects: &[Object], fov_recompute: bool) {
+fn render_all(mut tcod: &mut Tcod,game: &mut Game, objects: &[Object], fov_recompute: bool) {
     tcod.con.clear();
 
     if fov_recompute {
         let player = &objects[0];
         tcod.fov
             .compute_fov(player.x, player.y, TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO);
-        println!("Recomputing fog")
     }
 
     for object in objects {
@@ -299,9 +301,16 @@ fn render_all(mut tcod: &mut Tcod,game: &Game, objects: &[Object], fov_recompute
                 (true, true) => COLOR_LIGHT_WALL,
                 (true, false) => COLOR_LIGHT_GROUND,
             };
+            let explored = &mut game.map[x as usize][y as usize].explored;
+            if visible {
+                *explored = true;
+            }
+            if *explored {
+                tcod.con
+                    .set_char_background(x, y, color, BackgroundFlag::Set);
+            }
 
-            tcod.con
-                .set_char_background(x, y, color, BackgroundFlag::Set);
+
         }
     }
 
